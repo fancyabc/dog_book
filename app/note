@@ -1,0 +1,253 @@
+其一，这里有两个实体名为app。 app包由app目录和__init__.py脚本来定义构成，并在from app import routes语句中被引用。
+app变量被定义为__init__.py脚本中的Flask类的一个实例，以至于它成为app包的属性。
+
+其二，routes模块是在底部导入的，而不是在脚本的顶部。 最下面的导入是解决循环导入的问题，这是Flask应用程序的常见问题。
+你将会看到routes模块需要导入在这个脚本中定义的app变量，因此将routes的导入放在底部可以避免由于这两个文件之间的相互引用而导致的错误。
+
+模板有助于实现页面展现和业务逻辑之间的分离。 在Flask中，模板被编写为单独的文件，存储在应用程序包内的templates文件夹中。
+    在确定你在microblog目录后，创建一个存储模板的目录：
+
+将模板转换为完整的HTML页面的操作称为渲染。 为了渲染模板，需要从Flask框架中导入一个名为render_template()的函数。 该函数需要传入模板
+        文件名和模板参数的变量列表，并返回模板中所有占位符都用实际变量值替换后的字符串结果。
+
+render_template()函数调用Flask框架原生依赖的Jinja2模板引擎。 Jinja2用render_template()函数传入的参数中的相应值替换{{...}}块。
+
+条件语句
+    在渲染过程中使用实际值替换占位符，只是Jinja2在模板文件中支持的诸多强大操作之一。 模板也支持在{%...％}块内使用控制语句。 index.html模板的
+    下一个版本添加了一个条件语句：
+
+循环：
+       Jinja2提供了for控制结构来应对这类问题：
+        <html>
+            <head>
+                {% if title %}
+                <title>{{ title }} - Microblog</title>
+                {% else %}
+                <title>Welcome to Microblog</title>
+                {% endif %}
+            </head>
+            <body>
+                <h1>Hi, {{ user.username }}!</h1>
+                {% for post in posts %}
+                <div><p>{{ post.author.username }} says: <b>{{ post.body }}</b></p></div>
+                {% endfor %}
+            </body>
+        </html>
+
+模板的继承：
+    Jinja2有一个模板继承特性，专门解决这个问题。从本质上来讲，就是将所有模板中相同的部分转移到一个基础模板中，然后再从它继承过来。
+    
+    定义一个名为base.html的基本模板
+    在这个模板中，我使用block控制语句来定义派生模板可以插入代码的位置。 block被赋予一个唯一的名称，派生的模板可以在提供其内容时进行引用。
+    自从基础模板base.html接手页面的布局之后，我就可以从index.html中删除所有这方面的元素，只留下内容部分。 extends语句用来建立了两个模板之
+    间的继承关系，这样Jinja2才知道当要求呈现index.html时，需要将其嵌入到base.html中。 而两个模板中匹配的block语句和其名称content，让Jinja2
+    知道如何将这两个模板合并成在一起。
+
+
+配置：
+    你会发现Flask（也可能是Flask插件）为使用者提供了一些可自由配置的选项。你需要决定传入什么样的配置变量列表到框架中。将配置保存到一个单独的文件
+    存储在顶级目录下，名为config.py的模块的配置类，
+    配置设置被定义为Config类中的属性。 一旦应用程序需要更多配置选项，直接依样画葫芦，附加到这个类上即可
+
+用户登录表单:
+    Flask-WTF插件使用Python类来表示Web表单。表单类只需将表单的字段定义为类属性即可。将表单类单独存储到名为app/forms.py的模块中。
+    大多数Flask插件使用flask_ <name>命名约定来导入，Flask-WTF的所有内容都在flask_wtf包中。本例中，app/forms.py模块的顶部从flask_wtf导入了名为FlaskForm的基类。
+    由于Flask-WTF插件本身不提供字段类型，因此我直接从WTForms包中导入了四个表示表单字段的类。每个字段类都接受一个描述或别名作为第一个参数，并生成一个实例
+    来作为LoginForm的类属性。
+    你在一些字段中看到的可选参数validators用于验证输入字段是否符合预期。DataRequired验证器仅验证字段输入是否为空。
+
+表单模板:
+    下一步是将表单添加到HTML模板以便渲染到网页上。
+    在LoginForm类中定义的字段支持自渲染为HTML元素，所以这个任务相当简单。 把登录模板存储在文件*app/templates/login.html *中
+    使用了extends来继承base.html基础模板。事实上，我将会对所有的模板继承基础模板，以保持顶部导航栏风格统一。
+    这个模板需要一个form参数的传入到渲染模板的函数中，form来自于LoginForm类的实例化，不过我现在还没有编写它。
+
+    HTML<form>元素被用作Web表单的容器。 表单的action属性告诉浏览器在提交用户在表单中输入的信息时应该请求的URL。 当action设置为空字符串时，
+    表单将被提交给当前地址栏中的URL，即当前页面。 method属性指定了将表单提交给服务器时应该使用的HTTP请求方法。 默认情况下是用GET请求发送，
+    但几乎在所有情况下，使用POST请求会提供更好的用户体验，因为这种类型的请求可以在请求的主体中提交表单数据， GET请求将表单字段添加到URL，
+    会使浏览器地址栏变得混乱。
+
+    form.hidden_tag()模板参数生成了一个隐藏字段，其中包含一个用于保护表单免受CSRF攻击的token。 对于保护表单，你需要做的所有事情就是在模板中
+    包括这个隐藏的字段，并在Flask配置中定义SECRET_KEY变量，Flask-WTF会完成剩下的工作。
+
+    如果你以前编写过HTML Web表单，那么你会发现一个奇怪的现象——在此模板中没有HTML表单元素，这是因为表单的字段对象的在渲染时会自动转化为HTML元素。
+    我只需在需要字段标签的地方加上{{ form.<field_name>.label }}，需要这个字段的地方加上{{ form.<field_name>() }}。 对于需要附加HTML属性的字段，
+    可以作为关键字参数传递到函数中。 此模板中的username和password字段将size作为参数，将其作为属性添加到<input> HTML元素中。 你也可以通过这种手段
+    为表单字段设置class和id属性。
+
+表单视图:
+    函数的逻辑只需创建一个form实例，并将其传入渲染模板的函数中即可，然后用/login URL来关联它。这个视图函数也存储到app/routes.py模块中.
+    从forms.py导入LoginForm类，并生成了一个实例传入模板。form=form的语法看起来奇怪，这是Python函数或方法传入关键字参数的方式，
+    左边的form代表在模板中引用的变量名称，右边则是传入的form实例。这就是获取表单字段渲染结果的所有代码了。
+
+
+接收表单数据:
+    登录视图功能到目前为止只完成了一半的工作。 它可以在网页上显示表单，但没有逻辑来处理用户提交的数据。
+
+    路由装饰器中的methods参数。 它告诉Flask这个视图函数接受GET和POST请求，并覆盖了默认的GET。 HTTP协议规定对GET请求需要返回信息给客户端
+    （本例中是浏览器）。 本应用的所有GET请求都是如此。 当浏览器向服务器提交表单数据时，通常会使用POST请求（实际上用GET请求也可以，
+    但这不是推荐的做法）。之前的“Method Not Allowed”错误正是由于视图函数还未配置允许POST请求。 通过传入methods参数，你就能告诉Flask
+    哪些请求方法可以被接受。
+
+
+生成链接:
+    为了更好地管理这些链接，Flask提供了一个名为url_for()的函数，它使用URL到视图函数的内部映射关系来生成URL。 例如，url_for('login')返回/login，
+    url_for('index')返回/index。 url_for()的参数是endpoint名称，也就是视图函数的名字。
+    因此，从现在起，一旦我需要生成应用链接，我就会使用url_for()
+
+
+Flask中的数据库
+    绝大多数的数据库都提供了Python客户端包，它们之中的大部分都被封装成Flask插件以便更好地和Flask应用结合。
+
+    数据库被划分为两大类:遵循关系模型的一类是关系数据库，
+                          另外的则是非关系数据库，简称NoSQL，表现在它们不支持流行的关系查询语言SQL（译者注：部分人也宣称NoSQL代表不仅仅只是SQL）。
+
+    虽然两类数据库都是伟大的产品，但我认为关系数据库更适合具有结构化数据的应用程序，例如用户列表，用户动态等，而NoSQL数据库往往更适合非结构化数据。
+    本应用可以像大多数其他应用一样，使用任何一种类型的数据库来实现，但是出于上述原因，我将使用关系数据库
+
+    Flask-SQLAlchemy，这个插件为流行的SQLAlchemy包做了一层封装以便在Flask中调用更方便，类似SQLAlchemy这样的包叫做Object Relational Mapper，简称ORM。
+    ORM允许应用程序使用高级实体（如类，对象和方法）而不是表和SQL来管理数据库。 ORM的工作就是将高级操作转换成数据库命令。
+
+    SQLAlchemy不只是某一款数据库软件的ORM，而是支持包含MySQL、PostgreSQL和SQLite在内的很多数据库软件。简直是太强大了，你可以在开发的时候使用简单易用且无需另起服务的SQLite，
+    需要部署应用到生产服务器上时，则选用更健壮的MySQL或PostgreSQL服务，并且不需要修改应用代码（译者注：只需修改应用配置）。
+
+
+数据库迁移:
+
+Flask-SQLAlchemy配置
+    开发阶段，我会使用SQLite数据库，SQLite数据库是开发小型乃至中型应用最方便的选择，因为每个数据库都存储在磁盘上的单个文件中，
+    并且不需要像MySQL和PostgreSQL那样运行数据库服务。
+    Flask-SQLAlchemy插件从SQLALCHEMY_DATABASE_URI配置变量中获取应用的数据库的位置。
+    首先从环境变量获取配置变量，未获取到就使用默认值，这样做是一个好习惯。
+    从DATABASE_URL环境变量中获取数据库URL，如果没有定义，我将其配置为basedir变量表示的应用顶级目录下的一个名为app.db的文件路径。
+    SQLALCHEMY_TRACK_MODIFICATIONS配置项用于设置数据发生变更之后是否发送信号给应用，我不需要这项功能，因此将其设置为False.
+
+    app/__init__.py文件:
+        在这个初始化脚本中我更改了三处。首先，我添加了一个db对象来表示数据库。然后，我又添加了数据库迁移引擎migrate。这种注册
+        Flask插件的模式希望你了然于胸，因为大多数Flask插件都是这样初始化的。最后，我在底部导入了一个名为models的模块，这个模块
+        将会用来定义数据库结构。
+
+数据库模型
+    定义数据库中一张表及其字段的类，通常叫做数据模型。ORM(SQLAlchemy)会将类的实例关联到数据库表中的数据行，并翻译相关操作。
+    User类继承自db.Model，它是Flask-SQLAlchemy中所有模型的基类。 这个类将表的字段定义为类属性，字段被创建为db.Column类的实例，
+    它传入字段类型以及其他可选参数.
+
+创建数据库迁移存储库:
+    随着应用的不断增长，很可能会新增、修改或删除数据库结构。 Alembic（Flask-Migrate使用的迁移框架）将以一种不需要重新创建数据库的方式进行数据库结构的变更
+    Flask-Migrate通过flask命令暴露来它的子命令。 你已经看过flask run，这是一个Flask本身的子命令。 Flask-Migrate添加了
+    flask db子命令来管理与数据库迁移相关的所有事情。 那么让我们通过运行flask db init来创建microblog的迁移存储库：
+    flask命令依赖于FLASK_APP环境变量来知道Flask应用入口在哪里。 (windows下)需要设置set FLASK_APP = microblog.py。然后flask db init.
+    如下：
+        (venv) C:\Users\fanxi\PycharmProjects\狗书>set FLASK_APP=microblog.py
+        (venv) C:\Users\fanxi\PycharmProjects\狗书>flask db init
+        Creating directory C:\Users\fanxi\PycharmProjects\狗书\migrations ... done
+        Creating directory C:\Users\fanxi\PycharmProjects\狗书\migrations\versions ... done
+        Generating C:\Users\fanxi\PycharmProjects\狗书\migrations\alembic.ini ... done
+        Generating C:\Users\fanxi\PycharmProjects\狗书\migrations\env.py ... done
+        Generating C:\Users\fanxi\PycharmProjects\狗书\migrations\README ... done
+        Generating C:\Users\fanxi\PycharmProjects\狗书\migrations\script.py.mako ... done
+        Please edit configuration/connection/logging settings in 'C:\\Users\\fanxi\\PycharmProjects\\狗书\\migrations\\alembic.ini' before proceeding.
+
+     运行迁移初始化命令之后，你会发现一个名为migrations的新目录。该目录中包含一个名为versions的子目录以及若干文件。从现在起，
+     这些文件就是你项目的一部分了，应该添加到代码版本管理中去。
+
+第一次数据库迁移：
+    包含映射到User数据库模型的用户表的迁移存储库生成后，是时候创建第一次数据库迁移了。
+    有两种方法来创建数据库迁移：手动
+                                自动：Alembic会将数据库模型定义的数据库模式与数据库中当前使用的实际数据库模式进行比较。 然后，
+                                      使用必要的更改来填充迁移脚本，以使数据库模式与应用程序模型匹配。
+                                      当前情况是，由于之前没有数据库，自动迁移将把整个User模型添加到迁移脚本中。 flask db migrate子命令
+                                      生成这些自动迁移：
+                                      (venv) C:\Users\fanxi\PycharmProjects\狗书>flask db migrate -m "users table"
+                                        INFO  [alembic.runtime.migration] Context impl SQLiteImpl.
+                                        INFO  [alembic.runtime.migration] Will assume non-transactional DDL.
+                                        INFO  [alembic.autogenerate.compare] Detected added table 'user'
+                                        INFO  [alembic.autogenerate.compare] Detected added index 'ix_user_email' on '['email']'
+                                        INFO  [alembic.autogenerate.compare] Detected added index 'ix_user_username' on '['username']'
+                                        Generating C:\Users\fanxi\PycharmProjects\狗书\migrations\versions\ed410f2f4585_users_table.py ... done
+
+                                        前两行是常规信息，通常可以忽略。 之后的输出表明检测到了一个用户表和两个索引。 然后它会告诉你迁移脚本的输出路径。
+                                         e517276bb1c2是自动生成的一个用于迁移的唯一标识（你运行的结果会有所不同）。 -m可选参数为迁移添加了一个简短的注释。
+                                         生成的迁移脚本现在是你项目的一部分了，需要将其合并到源代码管理中。 如果你好奇，并检查了它的代码，就会发现它有两个
+                                         函数叫upgrade()和downgrade()。 upgrade()函数应用迁移，downgrade()函数回滚迁移。 Alembic通过使用降级方法可以将
+                                         数据库迁移到历史中的任何点，甚至迁移到较旧的版本。
+
+                                        flask db migrate命令不会对数据库进行任何更改，只会生成迁移脚本。 要将更改应用到数据库，必须使用flask db upgrade命令。
+
+                    因为本应用使用SQLite，所以upgrade命令检测到数据库不存在时，会创建它（在这个命令完成之后，你会注意到一个名为app.db的文件，
+                    即SQLite数据库）。 在使用类似MySQL和PostgreSQL的数据库服务时，必须在运行upgrade之前在数据库服务器上创建数据库。
+
+
+数据库升级和降级流程
+    通过数据库迁移机制的支持，在你修改应用中的模型之后，将生成一个新的迁移脚本（flask db migrate），你可能会审查它以确保自动生成的正确性，
+    然后将更改应用到你的开发数据库（）。 测试无误后，将迁移脚本添加到源代码管理并提交。
+
+    当准备将新版本的应用发布到生产服务器时，你只需要获取包含新增迁移脚本的更新版本的应用，然后运行flask db upgrade即可。
+    Alembic将检测到生产数据库未更新到最新版本，并运行在上一版本之后创建的所有新增迁移脚本。
+
+    正如我前面提到的，flask db downgrade命令可以回滚上次的迁移。 虽然在生产系统上不太可能需要此选项，但在开发过程中可能会发现它非常有用。
+    你可能已经生成了一个迁移脚本并将其应用，只是发现所做的更改并不完全是你所需要的。 在这种情况下，可以降级数据库，删除迁移脚本，
+    然后生成一个新的来替换它。
+
+数据库关系:
+
+
+Shell上下文:
+    开发应用时，你经常会在Python shell中测试，所以每次重复上面的导入都会变得枯燥乏味。 flask shell命令是flask命令集中的另一个非常
+    有用的工具。 shell命令是Flask在继run之后的实现第二个“核心”命令。 这个命令的目的是在应用的上下文中启动一个Python解释器。
+            (venv) C:\Users\fanxi\PycharmProjects\狗书>set FLASK_APP=microblog.py   （注意等号两侧不要有空格）
+            (venv) C:\Users\fanxi\PycharmProjects\狗书>flask shell
+            Python 3.6.4 (v3.6.4:d48eceb, Dec 19 2017, 06:54:40) [MSC v.1900 64 bit (AMD64)] on win32
+            App: app
+            Instance: C:\Users\fanxi\PycharmProjects\狗书\instance
+            >>> app
+            <Flask 'app'>
+
+
+    使用常规的解释器会话时，除非明确地被导入，否则app对象是未知的，但是当使用flask shell时，该命令预先导入应用实例。 flask shell
+    的绝妙之处不在于它预先导入了app，而是你可以配置一个“shell上下文”，也就是可以预先导入一份对象列表。
+
+    app.shell_context_processor装饰器将该函数注册为一个shell上下文函数。 当flask shell命令运行时，它会调用这个函数并在shell会话中
+    注册它返回的项目。 函数返回一个字典而不是一个列表，原因是对于每个项目，你必须通过字典的键提供一个名称以便在shell中被调用。
+
+    在添加shell上下文处理器函数后，你无需导入就可以使用数据库实例
+
+
+
+密码哈希：
+    实现密码哈希的包是Werkzeug，当安装Flask时，你可能会在pip的输出中看到这个包，因为它是Flask的一个核心依赖项。
+    所以，Werkzeug已经安装在你的虚拟环境中。
+        如何哈希密码：
+            >>>from werkzeug.security import generate_password_hash
+            >>>hash = generate_password_hash('foobar')
+            >>>hash
+            'pbkdf2:sha256:50000$eOK6rLw0$dec131e8c392cdc932c533b6de6092c93e4f208f104abba8e010d9aa93bc2fe2'
+    通过一系列已知没有反向操作的加密操作，将密码foobar转换成一个长编码字符串，这意味着获得密码哈希值的人将无法使用它逆推出原始密码。
+    作为一个附加手段，多次哈希相同的密码，你将得到不同的结果，所以这使得无法通过查看它们的哈希值来确定两个用户是否具有相同的密码。
+        验证过程使用Werkzeug的第二个函数来完成，如下所示：
+            >>> from werkzeug.security import check_password_hash
+            >>> check_password_hash(hash, 'foobar')
+            True
+            >>> check_password_hash(hash, 'barfoo')
+            False
+
+
+Flask_Login简介
+    Flask插件Flask-Login。 该插件管理用户登录状态，以便用户可以登录到应用，然后用户在导航到该应用的其他页面时，应用会“记得”该用户
+    已经登录。它还提供了“记住我”的功能，允许用户在关闭浏览器窗口后再次访问应用时保持登录状态。
+
+        必须的四项如下：
+        is_authenticated: 一个用来表示用户是否通过登录认证的属性，用True和False表示。
+        is_active: 如果用户账户是活跃的，那么这个属性是True，否则就是False（译者注：活跃用户的定义是该用户的登录状态是否通过用户名密码登录，
+                   通过“记住我”功能保持登录状态的用户是非活跃的）。
+        is_anonymous: 常规用户的该属性是False，对特定的匿名用户是True。
+        get_id(): 返回用户的唯一id的方法，返回值类型是字符串(Python 2下返回unicode字符串).
+
+
+
+
+
+
+
+
+
